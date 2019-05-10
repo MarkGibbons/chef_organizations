@@ -1,0 +1,16 @@
+//Extract info
+https://docs.chef.io/api_chef_server.html
+https://www.thepolyglotdeveloper.com/2017/07/consume-restful-api-endpoints-golang-application/
+https://tutorialedge.net/golang/consuming-restful-api-with-go/
+Will need the pivotal user credentials
+
+// DB tables
+http://go-database-sql.org/references.html
+Organizations
+name - canonical form, full_name
+
+Groups
+name - cf, group_name, Organization Name - cf, username -cf, actorf, userf
+
+Members
+username - cf, member email address, display_name
