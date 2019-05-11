@@ -9,11 +9,4 @@ Will need the pivotal user credentials
 
 // DB tables
 http://go-database-sql.org/references.html
-Organizations
-name - canonical form, full_name
-
-Groups
-name - cf, group_name, Organization Name - cf, username -cf, actorf, userf
-
-Members
-username - cf, member email address, display_name
+See tables01.sql for DB schema 

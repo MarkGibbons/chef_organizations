@@ -7,12 +7,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"os"
 	"regexp"
+	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type myJSON struct {
@@ -31,11 +35,15 @@ type userInfo struct {
 
 var dbName string
 var dbPort string
+var dbUser string
+var dbPwdFile string
 
 func main() {
 	// TODO: Authenication
 	dbName = "127.0.0.1"
 	dbPort = "3306"
+	dbPwdFile = os.Args[1]
+	dbUser = "root"
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/users", UserIndex)
@@ -45,12 +53,16 @@ func main() {
 	router.HandleFunc("/organizations/{org}", OrgShow)
 	router.HandleFunc("/organizations", OrgIndex)
 	router.HandleFunc("/", OrgIndex)
-	log.Fatal(http.ListenAndServeTLS(":8080", "cert.pem" , "key.pem" , router))
+	l, err := net.Listen("tcp4", ":8111")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	log.Fatal(http.ServeTLS(l, router, "cert.pem" , "key.pem"))
 }
 
 func OrgIndex(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
-	db := dbConnection(dbName, dbPort)
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get all the orgs
 	results, err := db.Query("SELECT name FROM organizations")
 	if err != nil {
@@ -73,9 +85,10 @@ func OrgIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func OrgShow(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
-	db := dbConnection(dbName, dbPort)
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT name FROM organizations where name = '" + org + "';")
 	if err != nil {
@@ -98,9 +111,10 @@ func OrgShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func OrgGroups(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
-	db := dbConnection(dbName, dbPort)
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT group_name FROM org_groups where organization_name = '" + org + "';")
 	if err != nil {
@@ -123,10 +137,11 @@ func OrgGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func OrgGroupShow(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	group := cleanInput(vars["group"])
-	db := dbConnection(dbName, dbPort)
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get all the members in a group in an org
 	results, err := db.Query("SELECT user_name FROM org_groups where organization_name = '" + org + "' AND group_name = '" + group + "';")
 	if err != nil {
@@ -149,7 +164,8 @@ func OrgGroupShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserIndex(w http.ResponseWriter, r *http.Request) {
-	db := dbConnection(dbName, dbPort)
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get all the users
 	results, err := db.Query("SELECT user_name FROM members")
 	if err != nil {
@@ -172,9 +188,10 @@ func UserIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserShow(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	member := cleanInput(vars["member"])
-	db := dbConnection(dbName, dbPort)
+	db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 	// DB query to get a specific member
 	results, err := db.Query("SELECT user_name, email, display_name FROM members where user_name = '" + member + "';")
 	if err != nil {
@@ -209,8 +226,8 @@ func cleanInput(in string) string {
 	return "Invalid-Request"
 }
 
-func dbConnection(dbname string, dbport string) *sql.DB {
-        db, err := sql.Open("mysql", "root@tcp("+dbname+":"+dbport+")/organizations")
+func dbConnection(dbname string, dbport string, dbuser string, dbpwd string) *sql.DB {
+        db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/organizations")
         if err != nil {
                 fmt.Println(err.Error())
         }
@@ -241,4 +258,12 @@ func unique(in []string) []string {
 		}
 	}
 	return list
+}
+
+func dbPwd(dbpwd_file string) string {
+        pwd, err := ioutil.ReadFile(dbpwd_file)
+        if err != nil {
+                panic(err.Error()) // proper error handling instead of panic in your app
+        }
+        return strings.TrimSpace(string(pwd))
 }

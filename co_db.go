@@ -15,29 +15,48 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-chef/chef"
 	_ "github.com/go-sql-driver/mysql"
 )
 
+var organizationsSchema = []string{
+
+	"CREATE DATABASE IF NOT EXISTS organizations;",
+
+	"USE organizations;",
+
+	"CREATE TABLE IF NOT EXISTS organizations ( name TEXT, full_name  TEXT) ENGINE=INNODB;",
+
+	"CREATE TABLE IF NOT EXISTS org_groups ( group_name TEXT, organization_name  TEXT, user_name  TEXT) ENGINE=INNODB;",
+
+	"CREATE TABLE IF NOT EXISTS members ( user_name TEXT, email  TEXT, display_name  TEXT) ENGINE=INNODB;",
+}
+
 func main() {
 	user := os.Args[1]
 	keyfile := os.Args[2]
 	chefurl := os.Args[3]
+	dbPwdFile  := os.Args[4]
 	dbName := "127.0.0.1"
 	dbPort := "3306"
+	dbUser := "root"
 
 	// TODO: Listen for update requests
 	// TODO: Delete organizations that have been deleted
+	// Create the database and add the schema
+	dbInit(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 
 	// Extract and Update on a timer
+
 	// Build a client
 	client := buildClient(user, keyfile, chefurl)
 	// Update cycle
 	for {
 		// Open database connection
-		db := dbConnection(dbName, dbPort)
+		db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
 		// Get list of organizations
 		orgList := listOrganizations(client)
 		// For each organization
@@ -79,12 +98,29 @@ func clientKey(filepath string) string {
 	return string(key)
 }
 
-func dbConnection(dbname string, dbport string) *sql.DB {
-	db, err := sql.Open("mysql", "root@tcp("+dbname+":"+dbport+")/organizations")
+func dbConnection(dbname string, dbport string, dbuser string, dbpwd string) *sql.DB {
+	db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/organizations")
 	if err != nil {
-		fmt.Println(err.Error())
+		panic(err.Error()) // proper error handling instead of panic in your app
 	}
 	return db
+}
+
+func dbInit(dbname string, dbport string, dbuser string, dbpwd string) {
+	fmt.Println(dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")")
+	db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	for _, stmt := range organizationsSchema {
+		fmt.Println(stmt)
+		_, err := db.Exec(stmt)
+		if err != nil {
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+	}
+	db.Close()
+	return
 }
 
 // List organizations
@@ -275,4 +311,12 @@ func unique(in []string) []string {
 		}
 	}
 	return list
+}
+
+func dbPwd(dbpwd_file string) string {
+	pwd, err := ioutil.ReadFile(dbpwd_file)
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	return strings.TrimSpace(string(pwd))
 }
