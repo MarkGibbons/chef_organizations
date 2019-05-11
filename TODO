@@ -5,3 +5,10 @@ Groups
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
     end
  
+DB
+  Extract info add to the data base
+  Replace whole organization with a transaction
+  REST fetch from DB
+
+
+Display

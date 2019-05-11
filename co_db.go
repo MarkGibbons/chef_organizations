@@ -34,13 +34,21 @@ func main() {
 	client := buildClient(user, key, chefurl)
         fmt.Println(client)
 
-	// List organization
+	// List organizations
 	orgList, err := client.Organizations.List()
 	if err != nil {
 		fmt.Println("Issue listing orgs:", err)
 	}
 	// Print out the list
 	fmt.Println(orgList)
+
+	// List uis organization
+	uisShow, err := client.Organizations.Get("uis")
+	if err != nil {
+		fmt.Println("Issue getting uis org:", err)
+	}
+	// Print out the list
+	fmt.Println(uisShow)
 
 	// List admin Group
 	groupList, err := client.Groups.Get("admins")
