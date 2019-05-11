@@ -1,0 +1,7 @@
+Groups
+  Lots of weird usag groups show up. knife eliminates them before returning.
+    knife-acl-1.0.3/lib/chef/knife/acl_base.rb
+    def is_usag?(gname)
+      gname.length == 32 && gname =~ /^[0-9a-f]+$/
+    end
+ 

@@ -1,0 +1,5 @@
+# Run co_db to gather group info from the uis org
+go run -tags debug co_db.go xmjg ~/.chef/xmjg.pem https://chefp01.nordstrom.net/organizations/uis/
+
+# Run co_db to list organizations
+go run -tags debug co_db.go pivotal ~/.pivotal/pivotal.pem https://chefp01.nordstrom.net/organizations
