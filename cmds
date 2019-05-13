@@ -3,3 +3,6 @@ go run -tags debug co_db.go xmjg ~/.chef/xmjg.pem https://chefp01.nordstrom.net/
 
 # Run co_db to list organizations
 go run -tags debug co_db.go pivotal ~/.pivotal/pivotal.pem https://chefp01.nordstrom.net/organizations
+
+# Run co_db01 to insert rows
+ sudo go run co_db01.go

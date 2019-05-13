@@ -10,37 +10,48 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	// "log"
 	"os"
+	"time"
 
-	// "github.com/gorilla/mux"
 	"github.com/go-chef/chef"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
 	user := os.Args[1]
 	keyfile := os.Args[2]
 	chefurl := os.Args[3]
+	dbName := "127.0.0.1"
+	dbPort := "3306"
 
-	// Listen for update requests
+	// TODO: Listen for update requests
+	// TODO: Delete organizations that have been deleted
+
 	// Extract and Update on a timer
-
-	// Get client key
-	key := clientKey(keyfile)
-
 	// Build a client
-	client := buildClient(user, key, chefurl)
-        fmt.Println(client)
-
-	// List organization
-	orgList, err := client.Organizations.List()
-	if err != nil {
-		fmt.Println("Issue listing orgs:", err)
+	client := buildClient(user, keyfile, chefurl)
+	// Update cycle
+	for {
+		// Open database connection
+		db := dbConnection(dbName, dbPort)
+		// Get list of organizations
+		orgList := listOrganizations(client)
+		// For each organization
+                for org := range orgList {
+                        orgclient := buildClient(user, keyfile, chefurl + "/" + org + "/")
+		        // Add organization if not there
+			org2DB(db, org)
+		        // Get the list of groups, update db
+                        groupsOrg2DB(orgclient, org, db)
+                }
+		//      Close the data base connection
+                db.Close()
+                time.Sleep(180 * time.Second)
 	}
-	// Print out the list
-	fmt.Println(orgList)
 
 	// List admin Group
 	groupList, err := client.Groups.Get("admins")
@@ -63,36 +74,26 @@ func main() {
 	if err != nil {
 		fmt.Println("Issue listing environments:", err)
 	}
-	// Print out the list
 	fmt.Println(envInfo)
 
 	// List Cookbooks - works
-//	cookList, err := client.Cookbooks.List()
+	//	cookList, err := client.Cookbooks.List()
 	//if err != nil {
-		//fmt.Println("Issue listing cookbooks:", err)
+	//fmt.Println("Issue listing cookbooks:", err)
 	//}
 	// Print out the list
 	//fmt.Println(cookList)
 
 	// Extract the organizations
 	// Extract the groups from each organization
-        // organization := "uis"
-        // groups := listGroups(&client, organization)
-        // fmt.Println(groups)
+	// organization := "uis"
+	// groups := listGroups(&client, organization)
+	// fmt.Println(groups)
 
 	// Extract the group members
 
 	// router := mux.NewRouter().StrictSlash(true)
 	// log.Fatal(http.ListenAndServe(":8080", router))
-}
-
-func clientKey(filepath string) string {
-	key, err := ioutil.ReadFile(filepath)
-	if err != nil {
-		fmt.Println("Couldn't read key.pem:", err)
-		os.Exit(1)
-	}
-	return string(key)
 }
 
 // func listGroups(client string, key string, baseurl string) *chef.Client {
@@ -105,7 +106,8 @@ func clientKey(filepath string) string {
 //	return client
 //}
 
-func buildClient(user string, key string, baseurl string) *chef.Client {
+func buildClient(user string, keyfile string, baseurl string) *chef.Client {
+	key := clientKey(keyfile)
 	client, err := chef.NewClient(&chef.Config{
 		Name:    user,
 		Key:     string(key),
@@ -117,4 +119,60 @@ func buildClient(user string, key string, baseurl string) *chef.Client {
 		os.Exit(1)
 	}
 	return client
+}
+
+func clientKey(filepath string) string {
+	key, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		fmt.Println("Couldn't read key.pem:", err)
+		os.Exit(1)
+	}
+	return string(key)
+}
+
+func dbConnection(dbname string, dbport string) *sql.DB {
+	db, err := sql.Open("mysql", "root@tcp("+dbname+":"+dbport+")/organizations")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return db
+}
+
+// List organizations
+func listOrganizations(client *chef.Client) map[string] string {
+	orgList, err := client.Organizations.List()
+	if err != nil {
+		fmt.Println("Issue listing orgs:", err)
+	}
+	return orgList
+}
+
+func org2DB(db *sql.DB, org string) {
+	// TODO: Add org to the DB organizations table if not there
+	fmt.Println(db)
+	fmt.Println(org)
+}
+
+func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
+	//         Get the list of groups in the organization
+        orgGroups(client, org)
+	//           For each group`
+	//             Get the members
+	//             Begin
+	//               Delete all rows in groups that match this group
+	//               Add and or update the member entry
+	//               For each member
+	//                 Add a group entry with the member
+	//             Commit
+}
+
+func orgGroups(client *chef.Client, org string) map[string]string {
+	// List Groups
+	groupInfo, err := client.Groups.List()
+	if err != nil {
+		fmt.Println("Issue listing groups:", err)
+	}
+	// Print out the list
+	fmt.Println(groupInfo)
+        return groupInfo
 }

@@ -26,7 +26,7 @@ func main() {
         defer db.Close()
         // Prepare statement for inserting organizations
         // name, full_name
-	stmtInsOrg, err := db.Prepare("INSERT INTO organizations VALUES( ?, ? )") // ? = placeholder
+	stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name, full_name) VALUES( ?, ? )") // ? = placeholder
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
