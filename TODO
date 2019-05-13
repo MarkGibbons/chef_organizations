@@ -4,4 +4,48 @@ Groups
     def is_usag?(gname)
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
     end
- 
+
+  Populate the DB
+     organization
+     users
+     group assignments
+       process the lists of users
+
+  Retreive from DB using rest
+     organization list
+     groups in organization
+     members in group
+     member detail
+
+   Habitat
+     mysql
+     2 go processes
+     Secrets management - DB user and password, pivotal pem file
+
+   User interface
+     Web UI
+       Hang off chef-restaurant/menu
+       Display organizations link to admins, link to groups
+         display groups in an org
+         display admins
+           display members in a group
+
+   Iterate
+     unique keys on tables
+     statistics to data dog
+     data alerts
+     xymon alerts
+     big/ip
+     https certs
+     Graphics to web pages
+     Refresh on demand?
+     Indexes if performance sucks
+     tests and verification
+     go-chef updates and PRs
+     go-chef tests
+     UI - sort the lists
+     UI - filter the lists
+     UI - save local ui settings
+     Delete orgs from DB is removed from chef-server, orgs and groups
+     Clean up the members if deleted from chef-server
+     Disk storage in container - INNODB or use memory

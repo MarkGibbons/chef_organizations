@@ -41,9 +41,12 @@ func main() {
 		// Get list of organizations
 		orgList := listOrganizations(client)
 		// For each organization
-                for org := range orgList {
+                for org, data := range orgList {
+                        fmt.Println("ORGLIST DATA")
+                        fmt.Println(data)
                         orgclient := buildClient(user, keyfile, chefurl + "/" + org + "/")
 		        // Add organization if not there
+                        // TODO: pass in the org data here
 			org2DB(db, org)
 		        // Get the list of groups, update db
                         groupsOrg2DB(orgclient, org, db)
@@ -60,14 +63,6 @@ func main() {
 	}
 	// Print out the list
 	fmt.Println(groupList)
-
-	// List Groups
-	groupInfo, err := client.Groups.List()
-	if err != nil {
-		fmt.Println("Issue listing groups:", err)
-	}
-	// Print out the list
-	fmt.Println(groupInfo)
 
 	// List Environments
 	envInfo, err := client.Environments.List()
@@ -95,16 +90,6 @@ func main() {
 	// router := mux.NewRouter().StrictSlash(true)
 	// log.Fatal(http.ListenAndServe(":8080", router))
 }
-
-// func listGroups(client string, key string, baseurl string) *chef.Client {
-// 	client, err := client.Groups.List() {
-// 	})
-// 	if err != nil {
-// 		fmt.Println("Issue setting up client:", err)
-//		os.Exit(1)
-//	}
-//	return client
-//}
 
 func buildClient(user string, keyfile string, baseurl string) *chef.Client {
 	key := clientKey(keyfile)
@@ -148,9 +133,35 @@ func listOrganizations(client *chef.Client) map[string] string {
 }
 
 func org2DB(db *sql.DB, org string) {
-	// TODO: Add org to the DB organizations table if not there
-	fmt.Println(db)
-	fmt.Println(org)
+        // See if org is already there
+        row := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
+        // TODO? Close row query
+        fmt.Println("QUERY RESULTS")
+        fmt.Println(row)
+        var name string
+        switch err := row.Scan(&name); err {
+        case sql.ErrNoRows:
+        	fmt.Println("Add this org " + org)
+        case nil:
+        	fmt.Println("Scanned Name" + name)
+        	fmt.Println("Present org " + org)
+          	return
+        default:
+                panic(err.Error()) // proper error handling instead of panic in your app
+        }
+
+        // Prepare statement for inserting organizations
+        // TODO: Need to do organization.Get to the chef server to get the full_name. Add later
+        // TODO need the org information
+        stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )") // ? = placeholder
+        if err != nil {
+                panic(err.Error()) // proper error handling instead of panic in your app
+        }
+        _, err = stmtInsOrg.Exec(org)
+        if err != nil {
+               panic(err.Error()) // proper error handling instead of panic in your app
+        }
+	return
 }
 
 func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
@@ -173,6 +184,6 @@ func orgGroups(client *chef.Client, org string) map[string]string {
 		fmt.Println("Issue listing groups:", err)
 	}
 	// Print out the list
-	fmt.Println(groupInfo)
+	// fmt.Println(groupInfo)
         return groupInfo
 }
