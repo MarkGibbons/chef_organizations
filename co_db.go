@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	// "log"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/go-chef/chef"
@@ -41,54 +42,17 @@ func main() {
 		// Get list of organizations
 		orgList := listOrganizations(client)
 		// For each organization
-                for org, data := range orgList {
-                        fmt.Println("ORGLIST DATA")
-                        fmt.Println(data)
-                        orgclient := buildClient(user, keyfile, chefurl + "/" + org + "/")
-		        // Add organization if not there
-                        // TODO: pass in the org data here
+		for org := range orgList {
+			orgclient := buildClient(user, keyfile, chefurl+"/"+org+"/")
+			// Add organization if not there
 			org2DB(db, org)
-		        // Get the list of groups, update db
-                        groupsOrg2DB(orgclient, org, db)
-                }
-		//      Close the data base connection
-                db.Close()
-                time.Sleep(180 * time.Second)
+			// Get the list of groups, update db
+			groupsOrg2DB(orgclient, org, db)
+		}
+		// Close the data base connection
+		db.Close()
+		time.Sleep(180 * time.Second)
 	}
-
-	// List admin Group
-	groupList, err := client.Groups.Get("admins")
-	if err != nil {
-		fmt.Println("Issue listing admins:", err)
-	}
-	// Print out the list
-	fmt.Println(groupList)
-
-	// List Environments
-	envInfo, err := client.Environments.List()
-	if err != nil {
-		fmt.Println("Issue listing environments:", err)
-	}
-	fmt.Println(envInfo)
-
-	// List Cookbooks - works
-	//	cookList, err := client.Cookbooks.List()
-	//if err != nil {
-	//fmt.Println("Issue listing cookbooks:", err)
-	//}
-	// Print out the list
-	//fmt.Println(cookList)
-
-	// Extract the organizations
-	// Extract the groups from each organization
-	// organization := "uis"
-	// groups := listGroups(&client, organization)
-	// fmt.Println(groups)
-
-	// Extract the group members
-
-	// router := mux.NewRouter().StrictSlash(true)
-	// log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 func buildClient(user string, keyfile string, baseurl string) *chef.Client {
@@ -124,7 +88,7 @@ func dbConnection(dbname string, dbport string) *sql.DB {
 }
 
 // List organizations
-func listOrganizations(client *chef.Client) map[string] string {
+func listOrganizations(client *chef.Client) map[string]string {
 	orgList, err := client.Organizations.List()
 	if err != nil {
 		fmt.Println("Issue listing orgs:", err)
@@ -133,57 +97,123 @@ func listOrganizations(client *chef.Client) map[string] string {
 }
 
 func org2DB(db *sql.DB, org string) {
-        // See if org is already there
-        row := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
-        // TODO? Close row query
-        fmt.Println("QUERY RESULTS")
-        fmt.Println(row)
-        var name string
-        switch err := row.Scan(&name); err {
-        case sql.ErrNoRows:
-        	fmt.Println("Add this org " + org)
-        case nil:
-        	fmt.Println("Scanned Name" + name)
-        	fmt.Println("Present org " + org)
-          	return
-        default:
-                panic(err.Error()) // proper error handling instead of panic in your app
-        }
+	// See if org is already there
+	row := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
+	// TODO? Close row query
+	var name string
+	switch err := row.Scan(&name); err {
+	case sql.ErrNoRows:
+	case nil:
+		return
+	default:
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
 
-        // Prepare statement for inserting organizations
-        // TODO: Need to do organization.Get to the chef server to get the full_name. Add later
-        // TODO need the org information
-        stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )") // ? = placeholder
-        if err != nil {
-                panic(err.Error()) // proper error handling instead of panic in your app
-        }
-        _, err = stmtInsOrg.Exec(org)
-        if err != nil {
-               panic(err.Error()) // proper error handling instead of panic in your app
-        }
+	// Prepare statement for inserting organizations
+	// TODO: Need to do organization.Get to the chef server to get the full_name. Add later
+	// TODO need the org information
+	stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )") // ? = placeholder
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	_, err = stmtInsOrg.Exec(org)
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
 	return
 }
 
 func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
 	//         Get the list of groups in the organization
-        orgGroups(client, org)
-	//           For each group`
-	//             Get the members
-	//             Begin
-	//               Delete all rows in groups that match this group
-	//               Add and or update the member entry
-	//               For each member
-	//                 Add a group entry with the member
-	//             Commit
+	groupList := orgGroups(client, org)
+	stmtDelGrp, err := db.Prepare("DELETE FROM org_groups WHERE organization_name = ? AND name = ?;")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	for group := range groupList {
+		// skip chefs internal groups
+		if isUsag(group) || group == "clients"{
+			continue
+		}
+
+		groupInfo := getGroup(client, group)
+
+		// Update the group entries in a transaction
+		tx, err := db.Begin()
+
+		// Delete all rows in groups that match this group
+		_, err = stmtDelGrp.Exec(org, group)
+		if err != nil {
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+		// Consolidate the member and actor arrays for the group
+		groupMembers := getGroupMembers(client, groupInfo)
+		// Add and/or update the member entry unless it exists
+		groupMembers2DB(groupMembers, org, group, db)
+
+		tx.Commit()
+	}
 }
 
 func orgGroups(client *chef.Client, org string) map[string]string {
-	// List Groups
-	groupInfo, err := client.Groups.List()
+	groupList, err := client.Groups.List()
 	if err != nil {
 		fmt.Println("Issue listing groups:", err)
+		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	// Print out the list
-	// fmt.Println(groupInfo)
-        return groupInfo
+	return groupList
+}
+
+func getGroup(client *chef.Client, group string) chef.Group {
+	groupInfo, err := client.Groups.Get(group)
+	if err != nil {
+		fmt.Println("Issue getting: "+group, err)
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	return groupInfo
+}
+
+func isUsag(group string) bool {
+	match, err := regexp.MatchString("^[0-9a-f]+$", group)
+	if err != nil {
+		fmt.Println("Issue with regex", err)
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	return len(group) == 32 && match
+}
+
+func getGroupMembers(client *chef.Client, groupInfo chef.Group) []string {
+        members := usersFromGroups(client, groupInfo.Groups)
+        members = append(members, groupInfo.Actors...)
+        members = append(members, groupInfo.Users...)
+	return  members 
+}
+
+func usersFromGroups(client *chef.Client, groups []string) []string {
+        var members []string
+	for _, group := range groups {
+		groupInfo, err := client.Groups.Get(group)
+		if err != nil {
+			fmt.Println("Issue with regex", err)
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+		members = getGroupMembers(client, groupInfo)
+        }
+	return members
+}
+
+func groupMembers2DB(groupMembers []string, group string, org string, db *sql.DB) {
+	// Add and/or update the member entry unless it exists
+	// Add a org_groups for each member	
+	stmtInsOrgGroup, err := db.Prepare("INSERT INTO org_groups (name, organization_name, user_name) VALUES( ?, ?, ? )")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	for _, member := range groupMembers {
+		_, err = stmtInsOrgGroup.Exec(group, org, member)
+		if err != nil {
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+		fmt.Println("Add group org member ", group, org, member)
+	}
 }

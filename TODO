@@ -1,17 +1,17 @@
 Groups
   Lots of weird usag groups show up. knife eliminates them before returning.
-    knife-acl-1.0.3/lib/chef/knife/acl_base.rb
+    knife-acl-1.0.3/lib/chef/knife/acl_base.rb uses this to filter the groups
     def is_usag?(gname)
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
     end
 
   Populate the DB
-     organization
-     users
+     X organization
      group assignments
        process the lists of users
+     users
 
-  Retreive from DB using rest
+  Retrieve from DB using rest
      organization list
      groups in organization
      members in group
