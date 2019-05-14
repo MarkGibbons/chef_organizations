@@ -17,11 +17,13 @@ import (
 type myJSON struct {
 	Array []string
 }
+var dbName string
+var dbPort string
 
 func main() {
 	// TODO: Authenication
-	dbName := "127.0.0.1"
-	dbPort := "3306"
+	dbName = "127.0.0.1"
+	dbPort = "3306"
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", OrgIndex)
@@ -33,7 +35,6 @@ func main() {
 }
 
 func OrgIndex(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Organizations Index")
 	db := dbConnection(dbName, dbPort)
 	// DB query to get all the orgs
 	results, err := db.Query("SELECT name FROM organizations")
@@ -49,13 +50,13 @@ func OrgIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		organizations = append(organizations, name)
 	}
-	results.Close
-	db.Close
+	results.Close()
+	db.Close()
 
 	// turn it into json and return it
 	jsondat := &myJSON{Array: organizations}
 	encjson, _ := json.Marshal(jsondat)
-	fmt.Println(string(encjson))
+	fmt.Fprintf(w, "%q", string(encjson))
 
 }
 
@@ -63,7 +64,7 @@ func OrgShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	org := vars["org"]
 	fmt.Fprintln(w, "Organization show "+org)
-	results, err := db.Query("SELECT name FROM organizations  WHERE name = '" + org + "';")
+	// results, err := db.Query("SELECT name FROM organizations  WHERE name = '" + org + "';")
 	// Pass organization name
 	// canonical form of the org name
 	// matches?
