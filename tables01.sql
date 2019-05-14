@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS organizations (
 ) ENGINE=INNODB;
 
 CREATE TABLE IF NOT EXISTS org_groups (
-  name TEXT,
+  group_name TEXT,
   organization_name  TEXT,
-  user_name  TEXT,
+  user_name  TEXT
 ) ENGINE=INNODB;
 
 CREATE TABLE IF NOT EXISTS members (

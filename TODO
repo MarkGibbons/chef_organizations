@@ -1,5 +1,5 @@
 Groups
-  Lots of weird usag groups show up. knife eliminates them before returning.
+  X Lots of weird usag groups show up. knife eliminates them before returning.
     knife-acl-1.0.3/lib/chef/knife/acl_base.rb uses this to filter the groups
     def is_usag?(gname)
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
@@ -7,14 +7,15 @@ Groups
 
   Populate the DB
      X organization
-     group assignments
-       process the lists of users
-     users
+       group info - may not be worth doing, just summarize to the group assignments
+     X group assignments
+       X process the lists of users
+     member - table with the email addresses
 
   Retrieve from DB using rest
-     organization list
-     groups in organization
-     members in group
+     X organization list
+     X groups in organization
+     x members in group
      member detail
 
    Habitat
@@ -31,6 +32,11 @@ Groups
            display members in a group
 
    Iterate
+     shutdown
+     vault
+     return 404 for things not found
+     https and certificate
+     big/ip set up
      unique keys on tables
      statistics to data dog
      data alerts
