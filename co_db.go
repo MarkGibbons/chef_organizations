@@ -230,7 +230,7 @@ func groupMembers2DB(groupMembers []string, org string, group string, db *sql.DB
 
 func memberUpdate(db *sql.DB, client *chef.Client) {
 	// Get a unique list of all the users
-	results, err := dbQuery("SELECT user_name FROM org_groups;")
+	results, err := db.Query("SELECT user_name FROM org_groups;")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -243,20 +243,26 @@ func memberUpdate(db *sql.DB, client *chef.Client) {
 		}
 		members = append(members, name)
 	}
+	members = unique(members)
 	results.Close()
 	stmtInsMember, err := db.Prepare("INSERT INTO members (user_name, email, display_name) VALUES( ?, ?, ? )")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
+        // transaction - begin, delete existing users, add replacement data
+	tx, err := db.Begin()
+	_, err = db.Query("DELETE FROM members;")
 	for _, member := range members {
 		// Extract information for each user
-		memberInfo = getMember(client, member)
+		memberInfo := getMember(client, member)
 		// Update the data base with a new set of user records
-		_, err = stmtInsMember.exec(memberInfo.Name, memberInfo.Email, memberInfo.DisplayName)
+		_, err = stmtInsMember.Exec(member, memberInfo.Email, memberInfo.DisplayName)
 		if err != nil {
 			panic(err.Error()) // proper error handling instead of panic in your app
 		}
 	}
+        stmtInsMember.Close()
+	tx.Commit()
 }
 
 func unique(in []string) []string {

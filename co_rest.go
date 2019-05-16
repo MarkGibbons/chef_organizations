@@ -18,6 +18,17 @@ import (
 type myJSON struct {
 	Array []string
 }
+
+type myJSONUser struct {
+	Array []userInfo
+}
+
+type userInfo struct {
+	Name string
+	Email string
+	Display string
+}
+
 var dbName string
 var dbPort string
 
@@ -27,15 +38,18 @@ func main() {
 	dbPort = "3306"
 
 	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/users", UserIndex)
+	router.HandleFunc("/users/{member}", UserShow)
 	router.HandleFunc("/organizations/{org}/groups/{group}", OrgGroupShow)
 	router.HandleFunc("/organizations/{org}/groups", OrgGroups)
 	router.HandleFunc("/organizations/{org}", OrgShow)
 	router.HandleFunc("/organizations", OrgIndex)
 	router.HandleFunc("/", OrgIndex)
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServeTLS(":8080", "cert.pem" , "key.pem" , router))
 }
 
 func OrgIndex(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
 	db := dbConnection(dbName, dbPort)
 	// DB query to get all the orgs
 	results, err := db.Query("SELECT name FROM organizations")
@@ -134,6 +148,54 @@ func OrgGroupShow(w http.ResponseWriter, r *http.Request) {
         return
 }
 
+func UserIndex(w http.ResponseWriter, r *http.Request) {
+	db := dbConnection(dbName, dbPort)
+	// DB query to get all the users
+	results, err := db.Query("SELECT user_name FROM members")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	var members []string
+	for results.Next() {
+		var name string
+		err = results.Scan(&name)
+		if err != nil {
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+		members = append(members, name)
+	}
+	results.Close()
+	db.Close()
+
+	jsonPrint(w, members)
+        return
+}
+
+func UserShow(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	member := cleanInput(vars["member"])
+	db := dbConnection(dbName, dbPort)
+	// DB query to get a specific member
+	results, err := db.Query("SELECT user_name, email, display_name FROM members where user_name = '" + member + "';")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	// TODO package the query results if any into a map
+        var users []userInfo
+	for results.Next() {
+		var user userInfo
+		err = results.Scan(&user.Name, &user.Email, &user.Display)
+		if err != nil {
+			panic(err.Error()) // proper error handling instead of panic in your app
+		}
+            	users = append(users, user)
+	}
+	results.Close()
+	db.Close()
+	jsonPrintUser(w, users)
+        return
+}
+
 func cleanInput(in string) string {
 	match, err := regexp.MatchString("^[[:word:]]+$", in)
         if err != nil {
@@ -158,6 +220,13 @@ func dbConnection(dbname string, dbport string) *sql.DB {
 func jsonPrint(w http.ResponseWriter, out []string) {
 	// turn it into json and return it
 	jsondat := &myJSON{Array: out}
+	encjson, _ := json.Marshal(jsondat)
+	fmt.Fprintf(w, "%q", string(encjson))
+}
+
+func jsonPrintUser(w http.ResponseWriter, out []userInfo) {
+	// turn it into json and return it
+	jsondat := &myJSONUser{Array: out}
 	encjson, _ := json.Marshal(jsondat)
 	fmt.Fprintf(w, "%q", string(encjson))
 }

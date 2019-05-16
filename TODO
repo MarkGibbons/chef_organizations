@@ -5,22 +5,23 @@ Groups
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
     end
 
-  Populate the DB
+  X Populate the DB
      X organization
-       group info - may not be worth doing, just summarize to the group assignments
+     X group info - may not be worth doing, just summarize to the group assignments
      X group assignments
        X process the lists of users
-     member - table with the email addresses
+     X  member - table with the email addresses
 
-  Retrieve from DB using rest
+  x Retrieve from DB using rest
      X organization list
      X groups in organization
      x members in group
-     member detail
+     x member detail
 
    Habitat
      mysql
      2 go processes
+     nginx web interface
      Secrets management - DB user and password, pivotal pem file
 
    User interface
@@ -30,28 +31,38 @@ Groups
          display groups in an org
          display admins
            display members in a group
+	     display specific member information
 
    Iterate
+     appid
      shutdown
-     vault
+     vault for secrets
      return 404 for things not found
-     https and certificate
      big/ip set up
-     unique keys on tables
      statistics to data dog
-     data alerts
-     xymon alerts
+     datadog alerts
+     splunk stats
+     xymon alerts service is available
+     GTM and 990
      big/ip
-     https certs
+     https
+     https certs for the app
      Graphics to web pages
      Refresh on demand?
-     Indexes if performance sucks
+     Indexes if performance sucks an for uniqueness
+     unique keys on tables
      tests and verification
      go-chef updates and PRs
      go-chef tests
      UI - sort the lists
      UI - filter the lists
      UI - save local ui settings
-     Delete orgs from DB is removed from chef-server, orgs and groups
-     Clean up the members if deleted from chef-server
+     Delete orgs from DB if removed from chef-server, orgs and groups
+     x Clean up the members if deleted from chef-server
      Disk storage in container - INNODB or use memory
+     chef api Users NAME is not returning the username  See memInfo.Name results replaced by member
+     Tests for chef api - users, groups, organizations
+     Go linters
+     CI for impl
+     Function documentation style
+     Initialize the DB tables on startup
