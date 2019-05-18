@@ -1,7 +1,7 @@
 //
 // Chef organization rest api
 //
-package organization
+package main
 
 import (
 	"database/sql"

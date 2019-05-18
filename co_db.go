@@ -7,7 +7,7 @@
 //
 // https://gowalker.org/github.com/go-chef/chef  and https://github.com/go-chef/chef  api
 //
-package main
+package organization
 
 import (
 	"database/sql"
@@ -35,11 +35,15 @@ var organizationsSchema = []string{
 	"CREATE TABLE IF NOT EXISTS members ( user_name TEXT, email  TEXT, display_name  TEXT) ENGINE=INNODB;",
 }
 
+// main uses a loop to get information from the chef server and update a mysql data base.
+// The chef server is accessed via the go-chef/chef server package and uses the chef-server api.
+// The mysql data base is used as a cache for a REST interface. See co_rest.go for the REST details.
 func main() {
+	// Pass in the database and chef-server api credentials.
 	user := os.Args[1]
 	keyfile := os.Args[2]
 	chefurl := os.Args[3]
-	dbPwdFile  := os.Args[4]
+	dbPWDFile  := os.Args[4]
 	dbName := "127.0.0.1"
 	dbPort := "3306"
 	dbUser := "root"
@@ -47,16 +51,16 @@ func main() {
 	// TODO: Listen for update requests
 	// TODO: Delete organizations that have been deleted
 	// Create the database and add the schema
-	dbInit(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
+	dbInit(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
 
 	// Extract and Update on a timer
 
-	// Build a client
+	// Build an api client instance.
 	client := buildClient(user, keyfile, chefurl)
-	// Update cycle
+	// Execute the get from chef server, update mysql cycle.
 	for {
 		// Open database connection
-		db := dbConnection(dbName, dbPort, dbUser, dbPwd(dbPwdFile))
+		db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
 		// Get list of organizations
 		orgList := listOrganizations(client)
 		// For each organization
@@ -106,6 +110,7 @@ func dbConnection(dbname string, dbport string, dbuser string, dbpwd string) *sq
 	return db
 }
 
+// dbInit creates the organization data base and tables.
 func dbInit(dbname string, dbport string, dbuser string, dbpwd string) {
 	fmt.Println(dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")")
 	db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/")
@@ -123,7 +128,7 @@ func dbInit(dbname string, dbport string, dbuser string, dbpwd string) {
 	return
 }
 
-// List organizations
+// listOrganizations uses the chef server api to list all organizations
 func listOrganizations(client *chef.Client) map[string]string {
 	orgList, err := client.Organizations.List()
 	if err != nil {
@@ -134,21 +139,18 @@ func listOrganizations(client *chef.Client) map[string]string {
 
 func org2DB(db *sql.DB, org string) {
 	// See if org is already there
-	row := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
-	// TODO? Close row query
+	org := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
 	var name string
-	switch err := row.Scan(&name); err {
+	switch err := org.Scan(&name); err {
 	case sql.ErrNoRows:
 	case nil:
 		return
 	default:
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-
+	org.Close()
 	// Prepare statement for inserting organizations
-	// TODO: Need to do organization.Get to the chef server to get the full_name. Add later
-	// TODO need the org information
-	stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )") // ? = placeholder
+	stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -156,6 +158,7 @@ func org2DB(db *sql.DB, org string) {
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
+        stmtInsOrg.Close()
 	return
 }
 
@@ -189,6 +192,7 @@ func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
 
 		tx.Commit()
 	}
+	stmtDelGrp.Close()
 }
 
 func orgGroups(client *chef.Client, org string) map[string]string {
@@ -227,7 +231,11 @@ func isUsag(group string) bool {
 	return len(group) == 32 && match
 }
 
+// getGroupMember gets all the members in a group.
+// Chef groups have three lists of members.  There is a list of 
+// actors, a list of users and a list of nested groups
 func getGroupMembers(client *chef.Client, groupInfo chef.Group) []string {
+        // TODO: Verify we are extracting the correct set of users
 	members := usersFromGroups(client, groupInfo.Groups)
 	members = append(members, groupInfo.Actors...)
 	members = append(members, groupInfo.Users...)
@@ -250,7 +258,7 @@ func usersFromGroups(client *chef.Client, groups []string) []string {
 
 func groupMembers2DB(groupMembers []string, org string, group string, db *sql.DB) {
 	// Add and/or update the member entry unless it exists
-	// Add a org_groups for each member
+	// Add a org_groups row for each member
 	stmtInsOrgGroup, err := db.Prepare("INSERT INTO org_groups (group_name, organization_name, user_name) VALUES( ?, ?, ? )")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -262,25 +270,26 @@ func groupMembers2DB(groupMembers []string, org string, group string, db *sql.DB
 		}
 		fmt.Println("Add group org member ", group, org, member)
 	}
+        stmtInsOrgGroup.Close()
 }
 
 func memberUpdate(db *sql.DB, client *chef.Client) {
 	// Get a unique list of all the users
-	results, err := db.Query("SELECT user_name FROM org_groups;")
+	users, err := db.Query("SELECT user_name FROM org_groups;")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
 	var members []string
-	for results.Next() {
+	for users.Next() {
 		var name string
-		err = results.Scan(&name)
+		err = users.Scan(&name)
 		if err != nil {
 			panic(err.Error()) // proper error handling instead of panic in your app
 		}
 		members = append(members, name)
 	}
 	members = unique(members)
-	results.Close()
+	users.Close()
 	stmtInsMember, err := db.Prepare("INSERT INTO members (user_name, email, display_name) VALUES( ?, ?, ? )")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -301,6 +310,7 @@ func memberUpdate(db *sql.DB, client *chef.Client) {
 	tx.Commit()
 }
 
+// unique takes and array and return the unique elements of the array
 func unique(in []string) []string {
 	keys := make(map[string]bool)
 	list := []string{}
@@ -313,8 +323,9 @@ func unique(in []string) []string {
 	return list
 }
 
-func dbPwd(dbpwd_file string) string {
-	pwd, err := ioutil.ReadFile(dbpwd_file)
+// dbPWD read a password from a specified file path
+func dbPWD(dbpwdFile string) string {
+	pwd, err := ioutil.ReadFile(dbpwdFile)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
