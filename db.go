@@ -9,6 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// DbConnectionRequest gathers the information to request a database connection.
 type DbConnectionRequest struct {
   Server string
   User string
@@ -18,6 +19,7 @@ type DbConnectionRequest struct {
   Database string
 }
 
+// DbConnection opens a data base connection.
 func DbConnection(dbc DbConnectionRequest) *sql.DB {
         dbc.Pwd = DbPWD(dbc.PwdFile)
         db, err := sql.Open("mysql", dbc.User+":"+dbc.Pwd+"@tcp("+dbc.Server+":"+dbc.Port+")/"+dbc.Database)

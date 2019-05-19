@@ -1,6 +1,8 @@
 //
 // Chef organization rest api
 //
+
+// TODO: REST documentation
 package main
 
 import (
@@ -33,6 +35,7 @@ type userInfo struct {
 
 var dbc co.DbConnectionRequest
 
+// co_rest main routes REST requests
 func main() {
 	// TODO: Authenication
 	dbc.PwdFile = os.Args[1]
@@ -56,6 +59,7 @@ func main() {
 	log.Fatal(http.ServeTLS(l, router, "cert.pem" , "key.pem"))
 }
 
+// Return a list of organizations
 func orgIndex(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	db := co.DbConnection(dbc)
@@ -75,17 +79,16 @@ func orgIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	results.Close()
 	db.Close()
-
 	jsonPrint(w, organizations)
         return
 }
 
+// orgShow executes a DB query to get a specific organization
 func orgShow(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	db := co.DbConnection(dbc)
-	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT name FROM organizations where name = '" + org + "';")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -106,12 +109,12 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
         return
 }
 
+// orgGroups executes a DB query to get all the groups in an org
 func orgGroups(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	db := co.DbConnection(dbc)
-	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT group_name FROM org_groups where organization_name = '" + org + "';")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -132,13 +135,13 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
         return
 }
 
+// orgGroupShow executes a DB query to get the users in an organization and group.
 func orgGroupShow(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	group := cleanInput(vars["group"])
 	db := co.DbConnection(dbc)
-	// DB query to get all the members in a group in an org
 	results, err := db.Query("SELECT user_name FROM org_groups where organization_name = '" + org + "' AND group_name = '" + group + "';")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -159,6 +162,7 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
         return
 }
 
+// userIndex gets a list of all the users in the database members table.
 func userIndex(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	db := co.DbConnection(dbc)
@@ -178,22 +182,20 @@ func userIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	results.Close()
 	db.Close()
-
 	jsonPrint(w, members)
         return
 }
 
+// userShow gets the details of a specific member.
 func userShow(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	member := cleanInput(vars["member"])
 	db := co.DbConnection(dbc)
-	// DB query to get a specific member
 	results, err := db.Query("SELECT user_name, email, display_name FROM members where user_name = '" + member + "';")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	// TODO package the query results if any into a map
         var users []userInfo
 	for results.Next() {
 		var user userInfo
@@ -209,6 +211,8 @@ func userShow(w http.ResponseWriter, r *http.Request) {
         return
 }
 
+// cleanInput restrict the values that can be specified via the rest interface
+// Allow only word characters for the org, group and member names
 func cleanInput(in string) string {
 	match, err := regexp.MatchString("^[[:word:]]+$", in)
         if err != nil {
@@ -222,15 +226,15 @@ func cleanInput(in string) string {
 	return "Invalid-Request"
 }
 
+// jsonPrint marshall json data from an array to return to the rest call
 func jsonPrint(w http.ResponseWriter, out []string) {
-	// turn it into json and return it
 	jsondat := &myJSON{Array: out}
 	encjson, _ := json.Marshal(jsondat)
 	fmt.Fprintf(w, "%q", string(encjson))
 }
 
+// jsonPrintUser marshal user data from an array to return to the rest call
 func jsonPrintUser(w http.ResponseWriter, out []userInfo) {
-	// turn it into json and return it
 	jsondat := &myJSONUser{Array: out}
 	encjson, _ := json.Marshal(jsondat)
 	fmt.Fprintf(w, "%q", string(encjson))

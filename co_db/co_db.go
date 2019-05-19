@@ -15,13 +15,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-chef/chef"
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// organizationsSchema defines the organization database and its tables.
 var organizationsSchema = []string{
 
 	"CREATE DATABASE IF NOT EXISTS organizations;",
@@ -80,13 +80,14 @@ func main() {
 	}
 }
 
+// buildClient creates a connection to a chef server using the chef api.
 func buildClient(user string, keyfile string, baseurl string) *chef.Client {
 	key := clientKey(keyfile)
 	client, err := chef.NewClient(&chef.Config{
 		Name:    user,
 		Key:     string(key),
 		BaseURL: baseurl,
-		// goiardi is on port 4545 by default. chef-zero is 8889. chef-server is on 443
+		// goiardi is on port 4545 by default, chef-zero is 8889, chef-server is on 443
 	})
 	if err != nil {
 		fmt.Println("Issue setting up client:", err)
@@ -95,6 +96,7 @@ func buildClient(user string, keyfile string, baseurl string) *chef.Client {
 	return client
 }
 
+// clientKey reads the pem file containing the credentials needed to use the chef client.
 func clientKey(filepath string) string {
 	key, err := ioutil.ReadFile(filepath)
 	if err != nil {
@@ -130,6 +132,7 @@ func listOrganizations(client *chef.Client) map[string]string {
 	return orgList
 }
 
+// org2DB adds organizations to the organizations database in the organizations table.
 func org2DB(db *sql.DB, org string) {
 	// See if org is already there
 	checkOrg := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
@@ -154,6 +157,10 @@ func org2DB(db *sql.DB, org string) {
 	return
 }
 
+// groupsOrg2DB adds the groups and members to the database.
+// The Org/group/member connections are updated by replacing all existing rows that contain
+// this org/group being processeda. A transaction is used so that requesters see the 
+// group members update as an atomic action.
 func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
 	//         Get the list of groups in the organization
 	groupList := orgGroups(client, org)
@@ -187,6 +194,7 @@ func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
 	stmtDelGrp.Close()
 }
 
+// orgGroups gets a list of groups, from the chef server, belonging to an organization.
 func orgGroups(client *chef.Client, org string) map[string]string {
 	groupList, err := client.Groups.List()
 	if err != nil {
@@ -196,6 +204,8 @@ func orgGroups(client *chef.Client, org string) map[string]string {
 	return groupList
 }
 
+// getGroup gets group information from the chef server. The
+// members of the group and nested groups are retrieved.
 func getGroup(client *chef.Client, group string) chef.Group {
 	groupInfo, err := client.Groups.Get(group)
 	if err != nil {
@@ -205,6 +215,7 @@ func getGroup(client *chef.Client, group string) chef.Group {
 	return groupInfo
 }
 
+// getMember gets the information associated with a particular user account.
 func getMember(client *chef.Client, member string) chef.User {
 	memberInfo, err := client.Users.Get(member)
 	if err != nil {
@@ -226,6 +237,8 @@ func getGroupMembers(client *chef.Client, groupInfo chef.Group) []string {
 	return members
 }
 
+// usersFromGroups gets the nested groups. getGroupMembers and userFromGroups
+// call each other in a recursive fashion to expand the nested groups
 func usersFromGroups(client *chef.Client, groups []string) []string {
 	var members []string
 	for _, group := range groups {
@@ -239,9 +252,10 @@ func usersFromGroups(client *chef.Client, groups []string) []string {
 	return members
 }
 
+// groupMembers2DB updates the members table.
+// It adds and/or updates a member entry.
+// It adds a org_groups row for each member
 func groupMembers2DB(groupMembers []string, org string, group string, db *sql.DB) {
-	// Add and/or update the member entry unless it exists
-	// Add a org_groups row for each member
 	stmtInsOrgGroup, err := db.Prepare("INSERT INTO org_groups (group_name, organization_name, user_name) VALUES( ?, ?, ? )")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
@@ -256,6 +270,7 @@ func groupMembers2DB(groupMembers []string, org string, group string, db *sql.DB
         stmtInsOrgGroup.Close()
 }
 
+//memberUpdate updates the member information in the database.
 func memberUpdate(db *sql.DB, client *chef.Client) {
 	// Get a unique list of all the users
 	users, err := db.Query("SELECT user_name FROM org_groups;")
@@ -291,13 +306,4 @@ func memberUpdate(db *sql.DB, client *chef.Client) {
 	}
         stmtInsMember.Close()
 	tx.Commit()
-}
-
-// dbPWD read a password from a specified file path
-func dbPWD(dbpwdFile string) string {
-	pwd, err := ioutil.ReadFile(dbpwdFile)
-	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
-	}
-	return strings.TrimSpace(string(pwd))
 }

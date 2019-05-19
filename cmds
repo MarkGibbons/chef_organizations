@@ -1,8 +1,0 @@
-# Run co_db to gather group info from the uis org
-go run -tags debug co_db.go xmjg ~/.chef/xmjg.pem https://chefp01.nordstrom.net/organizations/uis/
-
-# Run co_db to update the db
-sudo env 'GOPATH=/home/xmjg/go' go run co_db.go pivotal /u01/restaurant/tools/pivotal.pem https://chefp01.nordstrom.net/organizations /u01/restaurant/tools/menu/pivotal.pem
-
-# Run co_rest to start the rest interface
-sudo env 'GOPATH=/home/xmjg/go' go run co_rest.go 
