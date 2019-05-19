@@ -4,16 +4,14 @@
 package main
 
 import (
-	"database/sql"
+        "co"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 
 	"github.com/gorilla/mux"
 	_ "github.com/go-sql-driver/mysql"
@@ -33,17 +31,15 @@ type userInfo struct {
 	Display string
 }
 
-var dbName string
-var dbPort string
-var dbUser string
-var dbPWDFile string
+var dbc co.DbConnectionRequest
 
 func main() {
 	// TODO: Authenication
-	dbName = "127.0.0.1"
-	dbPort = "3306"
-	dbPWDFile = os.Args[1]
-	dbUser = "root"
+	dbc.PwdFile = os.Args[1]
+	dbc.Server = "127.0.0.1"
+	dbc.Port = "3306"
+	dbc.User = "root"
+        dbc.Database = "organizations"
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/users", userIndex)
@@ -62,7 +58,7 @@ func main() {
 
 func orgIndex(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get all the orgs
 	results, err := db.Query("SELECT name FROM organizations")
 	if err != nil {
@@ -88,7 +84,7 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT name FROM organizations where name = '" + org + "';")
 	if err != nil {
@@ -105,7 +101,7 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
 	}
 	results.Close()
 	db.Close()
-	orgs = unique(orgs)
+	orgs = co.Unique(orgs)
 	jsonPrint(w, orgs)
         return
 }
@@ -114,7 +110,7 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get all the groups in an org
 	results, err := db.Query("SELECT group_name FROM org_groups where organization_name = '" + org + "';")
 	if err != nil {
@@ -131,7 +127,7 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
 	}
 	results.Close()
 	db.Close()
-	groups = unique(groups)
+	groups = co.Unique(groups)
 	jsonPrint(w, groups)
         return
 }
@@ -141,7 +137,7 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	group := cleanInput(vars["group"])
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get all the members in a group in an org
 	results, err := db.Query("SELECT user_name FROM org_groups where organization_name = '" + org + "' AND group_name = '" + group + "';")
 	if err != nil {
@@ -158,14 +154,14 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
 	}
 	results.Close()
 	db.Close()
-	members = unique(members)
+	members = co.Unique(members)
 	jsonPrint(w, members)
         return
 }
 
 func userIndex(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get all the users
 	results, err := db.Query("SELECT user_name FROM members")
 	if err != nil {
@@ -191,7 +187,7 @@ func userShow(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	member := cleanInput(vars["member"])
-	db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	db := co.DbConnection(dbc)
 	// DB query to get a specific member
 	results, err := db.Query("SELECT user_name, email, display_name FROM members where user_name = '" + member + "';")
 	if err != nil {
@@ -226,14 +222,6 @@ func cleanInput(in string) string {
 	return "Invalid-Request"
 }
 
-func dbConnection(dbname string, dbport string, dbuser string, dbpwd string) *sql.DB {
-        db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/organizations")
-        if err != nil {
-                fmt.Println(err.Error())
-        }
-        return db
-}
-
 func jsonPrint(w http.ResponseWriter, out []string) {
 	// turn it into json and return it
 	jsondat := &myJSON{Array: out}
@@ -246,24 +234,4 @@ func jsonPrintUser(w http.ResponseWriter, out []userInfo) {
 	jsondat := &myJSONUser{Array: out}
 	encjson, _ := json.Marshal(jsondat)
 	fmt.Fprintf(w, "%q", string(encjson))
-}
-
-func unique(in []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range in {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
-}
-
-func dbPWD(dbpwdFile string) string {
-        pwd, err := ioutil.ReadFile(dbpwdFile)
-        if err != nil {
-                panic(err.Error()) // proper error handling instead of panic in your app
-        }
-        return strings.TrimSpace(string(pwd))
 }

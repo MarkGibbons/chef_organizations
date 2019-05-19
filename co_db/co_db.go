@@ -10,11 +10,11 @@
 package main
 
 import (
+        "co"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -43,15 +43,17 @@ func main() {
 	user := os.Args[1]
 	keyfile := os.Args[2]
 	chefurl := os.Args[3]
-	dbPWDFile  := os.Args[4]
-	dbName := "127.0.0.1"
-	dbPort := "3306"
-	dbUser := "root"
+        var dbc co.DbConnectionRequest
+	dbc.PwdFile  = os.Args[4]
+	dbc.Server = "127.0.0.1"
+	dbc.Port = "3306"
+	dbc.User = "root"
+	dbc.Database = "organizations"
 
 	// TODO: Listen for update requests
 	// TODO: Delete organizations that have been deleted
 	// Create the database and add the schema
-	dbInit(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+	dbInit(dbc)
 
 	// Extract and Update on a timer
 
@@ -60,7 +62,7 @@ func main() {
 	// Execute the get from chef server, update mysql cycle.
 	for {
 		// Open database connection
-		db := dbConnection(dbName, dbPort, dbUser, dbPWD(dbPWDFile))
+		db := co.DbConnection(dbc)
 		// Get list of organizations
 		orgList := listOrganizations(client)
 		// For each organization
@@ -102,18 +104,9 @@ func clientKey(filepath string) string {
 	return string(key)
 }
 
-func dbConnection(dbname string, dbport string, dbuser string, dbpwd string) *sql.DB {
-	db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/organizations")
-	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
-	}
-	return db
-}
-
 // dbInit creates the organization data base and tables.
-func dbInit(dbname string, dbport string, dbuser string, dbpwd string) {
-	fmt.Println(dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")")
-	db, err := sql.Open("mysql", dbuser+":"+dbpwd+"@tcp("+dbname+":"+dbport+")/")
+func dbInit(dbc co.DbConnectionRequest) {
+	db, err := sql.Open("mysql", dbc.User+":"+dbc.Pwd+"@tcp("+dbc.Server+":"+dbc.Port+")/")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -170,7 +163,7 @@ func groupsOrg2DB(client *chef.Client, org string, db *sql.DB) {
 	}
 	for group := range groupList {
 		// skip chefs internal groups
-		if isUsag(group) || group == "clients" {
+		if co.IsUSAG(group) || group == "clients" {
 			continue
 		}
 
@@ -221,16 +214,7 @@ func getMember(client *chef.Client, member string) chef.User {
 	return memberInfo
 }
 
-func isUsag(group string) bool {
-	match, err := regexp.MatchString("^[0-9a-f]+$", group)
-	if err != nil {
-		fmt.Println("Issue with regex", err)
-		panic(err.Error()) // proper error handling instead of panic in your app
-	}
-	return len(group) == 32 && match
-}
-
-// getGroupMember gets all the members in a group.
+// getGroupMember gets all the members in a group form the chef server.
 // Chef groups have three lists of members.  There is a list of 
 // actors, a list of users and a list of nested groups
 func getGroupMembers(client *chef.Client, groupInfo chef.Group) []string {
@@ -238,7 +222,7 @@ func getGroupMembers(client *chef.Client, groupInfo chef.Group) []string {
 	members := usersFromGroups(client, groupInfo.Groups)
 	members = append(members, groupInfo.Actors...)
 	members = append(members, groupInfo.Users...)
-	members = unique(members)
+	members = co.Unique(members)
 	return members
 }
 
@@ -287,7 +271,7 @@ func memberUpdate(db *sql.DB, client *chef.Client) {
 		}
 		members = append(members, name)
 	}
-	members = unique(members)
+	members = co.Unique(members)
 	users.Close()
 	stmtInsMember, err := db.Prepare("INSERT INTO members (user_name, email, display_name) VALUES( ?, ?, ? )")
 	if err != nil {
@@ -307,19 +291,6 @@ func memberUpdate(db *sql.DB, client *chef.Client) {
 	}
         stmtInsMember.Close()
 	tx.Commit()
-}
-
-// unique takes and array and return the unique elements of the array
-func unique(in []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range in {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }
 
 // dbPWD read a password from a specified file path
