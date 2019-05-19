@@ -7,7 +7,7 @@
 //
 // https://gowalker.org/github.com/go-chef/chef  and https://github.com/go-chef/chef  api
 //
-package organization
+package main
 
 import (
 	"database/sql"
@@ -139,16 +139,15 @@ func listOrganizations(client *chef.Client) map[string]string {
 
 func org2DB(db *sql.DB, org string) {
 	// See if org is already there
-	org := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
+	checkOrg := db.QueryRow("SELECT name FROM organizations  WHERE name = '" + org + "';")
 	var name string
-	switch err := org.Scan(&name); err {
+	switch err := checkOrg.Scan(&name); err {
 	case sql.ErrNoRows:
 	case nil:
 		return
 	default:
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	org.Close()
 	// Prepare statement for inserting organizations
 	stmtInsOrg, err := db.Prepare("INSERT INTO organizations (name) VALUES( ? )")
 	if err != nil {
