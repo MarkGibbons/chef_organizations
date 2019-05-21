@@ -1,4 +1,4 @@
-// Chef Organization
+// Package co provides access to Chef server organization information
 // Utility functions
 package co
 

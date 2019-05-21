@@ -1,4 +1,4 @@
-// Chef Organization
+// Package co
 // Data base common functions
 package co
 
@@ -6,6 +6,7 @@ import (
 	"database/sql"
         "io/ioutil"
         "strings"
+	// mysql driver
 	_ "github.com/go-sql-driver/mysql"
 )
 

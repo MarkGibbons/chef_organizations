@@ -1,3 +1,10 @@
+#  Overview
+The chef organization application extracts information from the chef server that is not available to unauthorized users.
+The application consists of 4 processes. A mysql database, a process written in go to extract information from the chef
+server, a go process the supports a REST interface to access the database and an nginx server provides a UI.  The extract process
+uses the go-chef/chef chef server api with additions for organization and user support.  The UI is written in Java Script.
+
+
 # Links to help with development
 
 ## Extract info
