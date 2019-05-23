@@ -18,7 +18,7 @@ import (
 	"time"
 
 	// "github.com/go-chef/chef"
-	chef "github.com/MarkGibbons/chefapi/tree/try_orgs"
+	chef "github.com/MarkGibbons/chefapi"
 	_ "github.com/go-sql-driver/mysql"
 )
 
