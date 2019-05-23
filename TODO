@@ -1,14 +1,77 @@
 Groups
-  Lots of weird usag groups show up. knife eliminates them before returning.
-    knife-acl-1.0.3/lib/chef/knife/acl_base.rb
+  X Lots of weird usag groups show up. knife eliminates them before returning.
+    knife-acl-1.0.3/lib/chef/knife/acl_base.rb uses this to filter the groups
     def is_usag?(gname)
       gname.length == 32 && gname =~ /^[0-9a-f]+$/
     end
- 
-DB
-  Extract info add to the data base
-  Replace whole organization with a transaction
-  REST fetch from DB
 
+  X Populate the DB
+     X organization
+     X group info - may not be worth doing, just summarize to the group assignments
+     X group assignments
+       X process the lists of users
+     X  member - table with the email addresses
 
-Display
+  x Retrieve from DB using rest
+     X organization list
+     X groups in organization
+     x members in group
+     x member detail
+
+   GO
+     Add unit tests
+
+   Habitat
+     mysql
+     2 go processes
+     nginx web interface
+     Secrets management - DB user and password, pivotal pem file
+
+   User interface
+     Web UI
+       Hang off chef-restaurant/menu
+       Display organizations link to adminsi
+         x link to groups
+         X display groups in an org
+         display admins
+           X display members in a group
+	     display specific member information
+
+   Iterate
+     appid
+     shutdown
+     vault for secrets
+     return 404 for things not found
+     big/ip set up
+     statistics to data dog
+     datadog alerts
+     splunk stats
+     xymon alerts service is available
+     GTM and 990
+     big/ip
+     x https
+     https certs for the app
+     Graphics on web pages
+     Refresh on demand?
+     Indexes if performance sucks and for uniqueness
+     unique keys on tables
+     tests and verification
+     go-chef updates and PRs
+     go-chef tests
+     UI - sort the lists
+     UI - filter the lists
+     UI - save local ui settings
+     Delete orgs from DB if removed from chef-server, orgs and groups
+     x Clean up the members if deleted from chef-server
+     Disk storage in container - INNODB or use memory
+     chef api Users NAME is not returning the username  See memInfo.Name results replaced by member
+     Go linters
+     CI for impl
+     # Function documentation style
+     # Initialize the DB tables on startup
+
+Chef-api
+     Tests for chef api - users, groups, organizations
+     Integration tests with a real or fake chef server
+     organizations
+     users
