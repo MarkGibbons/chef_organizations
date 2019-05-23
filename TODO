@@ -18,6 +18,9 @@ Groups
      x members in group
      x member detail
 
+   GO
+     Add unit tests
+
    Habitat
      mysql
      2 go processes

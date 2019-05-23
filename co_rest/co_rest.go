@@ -89,7 +89,11 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	db := co.DbConnection(dbc)
-	results, err := db.Query("SELECT name FROM organizations where name = '" + org + "';")
+        stmtQryOrg, err := db.Prepare("SELECT name FROM organizations where name = ? ;)
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	results, err := stmtQryOrg.Exec(org)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -103,6 +107,7 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
 		orgs = append(orgs, name)
 	}
 	results.Close()
+        stmtQryOrg.Close()
 	db.Close()
 	orgs = co.Unique(orgs)
 	jsonPrint(w, orgs)
@@ -115,7 +120,11 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	db := co.DbConnection(dbc)
-	results, err := db.Query("SELECT group_name FROM org_groups where organization_name = '" + org + "';")
+	stmtQryOrgGrp, err := db.Prepare("SELECT group_name FROM org_groups where organization_name = ? ;")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	results, err := stmtQryOrgGrp.Exec(org)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -129,6 +138,7 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
 		groups = append(groups, name)
 	}
 	results.Close()
+        stmtQryOrgGrp()
 	db.Close()
 	groups = co.Unique(groups)
 	jsonPrint(w, groups)
@@ -142,7 +152,11 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
 	org := cleanInput(vars["org"])
 	group := cleanInput(vars["group"])
 	db := co.DbConnection(dbc)
-	results, err := db.Query("SELECT user_name FROM org_groups where organization_name = '" + org + "' AND group_name = '" + group + "';")
+	stmtQryOrgGrp, err := db.Prepare("SELECT user_name FROM org_groups where organization_name = ? AND group_name = ? ;")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	results, err := stmtQryOrgGrp.Exec(org, group)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -156,6 +170,7 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
 		members = append(members, name)
 	}
 	results.Close()
+        stmtQryOrgGrp.Close()
 	db.Close()
 	members = co.Unique(members)
 	jsonPrint(w, members)
@@ -192,7 +207,11 @@ func userShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	member := cleanInput(vars["member"])
 	db := co.DbConnection(dbc)
-	results, err := db.Query("SELECT user_name, email, display_name FROM members where user_name = '" + member + "';")
+	stmtQryNm, err := db.Prepare("SELECT user_name, email, display_name FROM members where user_name = ? ;")
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
+	results, err := stmtQryNm.Exec(member)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -206,6 +225,7 @@ func userShow(w http.ResponseWriter, r *http.Request) {
             	users = append(users, user)
 	}
 	results.Close()
+        stmtQryNm.Close()
 	db.Close()
 	jsonPrintUser(w, users)
         return
