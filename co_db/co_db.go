@@ -136,11 +136,14 @@ func listOrganizations(client *chef.Client) map[string]string {
 // org2DB adds organizations to the organizations database in the organizations table.
 func org2DB(db *sql.DB, org string) {
 	// See if org is already there
-	stmtOrgName := db.Prepare("SELECT name FROM organizations  WHERE name = ?)
+	stmtOrgName, err := db.Prepare("SELECT name FROM organizations  WHERE name = ?")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	checkOrg := stmtOrgName.Exec(org)
+	checkOrg, err := stmtOrgName.Exec(org)
+	if err != nil {
+		panic(err.Error()) // proper error handling instead of panic in your app
+	}
 	var name string
 	switch err := checkOrg.Scan(&name); err {
 	case sql.ErrNoRows:
