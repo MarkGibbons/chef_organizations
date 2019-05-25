@@ -1,4 +1,3 @@
-// Package co
 // Data base common functions
 package co
 

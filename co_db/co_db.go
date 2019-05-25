@@ -10,7 +10,7 @@
 package main
 
 import (
-        "co"
+        "chef_organizations/co"
 	"database/sql"
 	"fmt"
 	"io/ioutil"

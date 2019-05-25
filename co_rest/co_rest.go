@@ -6,7 +6,7 @@
 package main
 
 import (
-        "co"
+        "chef_organizations/co"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -89,7 +89,7 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	org := cleanInput(vars["org"])
 	db := co.DbConnection(dbc)
-        stmtQryOrg, err := db.Prepare("SELECT name FROM organizations where name = ? ;)
+        stmtQryOrg, err := db.Prepare("SELECT name FROM organizations where name = ? ;")
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
