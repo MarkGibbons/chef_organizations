@@ -93,7 +93,7 @@ func orgShow(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	results, err := stmtQryOrg.Exec(org)
+	results, err := stmtQryOrg.Query(org)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -124,7 +124,7 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	results, err := stmtQryOrgGrp.Exec(org)
+	results, err := stmtQryOrgGrp.Query(org)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -138,7 +138,7 @@ func orgGroups(w http.ResponseWriter, r *http.Request) {
 		groups = append(groups, name)
 	}
 	results.Close()
-        stmtQryOrgGrp()
+        stmtQryOrgGrp.Close()
 	db.Close()
 	groups = co.Unique(groups)
 	jsonPrint(w, groups)
@@ -156,7 +156,7 @@ func orgGroupShow(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	results, err := stmtQryOrgGrp.Exec(org, group)
+	results, err := stmtQryOrgGrp.Query(org, group)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
@@ -211,7 +211,7 @@ func userShow(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
-	results, err := stmtQryNm.Exec(member)
+	results, err := stmtQryNm.Query(member)
 	if err != nil {
 		panic(err.Error()) // proper error handling instead of panic in your app
 	}
